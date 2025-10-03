@@ -1,5 +1,6 @@
 ﻿using PayNudge.Models;
 using PayNudge.Utils;
+using Serilog;
 
 namespace PayNudge.Services;
 
@@ -13,9 +14,10 @@ public class ReminderService
     {
         var payments = _sheetsService.GetPaymentRows();
 
+        Log.Information("Total number of payments found: {PaymentsCount}", payments.Count);
+
         if (payments.Count == 0)
         {
-            Console.WriteLine("No payments found.");
             return;
         }
 
@@ -23,10 +25,14 @@ public class ReminderService
         var overdue = payments.Where(p => p.IsOverdue).ToList();
         var upcoming = payments.Where(p => p.IsUpcoming).ToList();
 
+        Log.Information("Payments due today: {DueTodayCount}, Overdue payments: {OverdueCount}, Upcoming payments: {UpcomingCount}", dueToday.Count, overdue.Count, upcoming.Count);
+
         if (dueToday.Any() || overdue.Any() || upcoming.Any())
         {
+            Log.Information("There are payments to notify about. Preparing to send email.");
             var htmlBody = EmailFormatter.BuildHtmlBody(dueToday, overdue, upcoming);
             _emailService.SendReminder(htmlBody);
+            Log.Information("Reminder email sent successfully.");
         }
     }
 }

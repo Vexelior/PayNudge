@@ -3,6 +3,7 @@ using Google.Apis.Services;
 using Google.Apis.Sheets.v4;
 using PayNudge.Models;
 using System.Globalization;
+using Serilog;
 
 namespace PayNudge.Services;
 
@@ -15,6 +16,17 @@ public class GoogleSheetsService
     public List<PaymentRow> GetPaymentRows()
     {
         var service = Authenticate();
+
+        if (service != null)
+        {
+            Log.Information("Authentication to Google Sheets was successful.");
+        }
+        else
+        {
+            Log.Error("Authentication to Google Sheets failed.");
+            return [];
+        }
+
         var sheetName = DateTime.Now.ToString("MMMM yyyy");
         var range = $"{sheetName}!B5:F";
 
@@ -41,6 +53,8 @@ public class GoogleSheetsService
             bool paid = row.Count > paidIdx && row[paidIdx].ToString()?.Trim().ToUpper() == "TRUE";
             if (paid) continue;
 
+            Log.Information("Found payment that meets criteria: DueDate={ToShortDateString}, PayTo={O}, AmountDue={O1}", dueDate.ToShortDateString(), row[payToIdx], row[amtIdx]);
+
             list.Add(new PaymentRow
             {
                 DueDate = dueDate,
@@ -52,14 +66,19 @@ public class GoogleSheetsService
         return list;
     }
 
-    private static SheetsService Authenticate()
+    private static SheetsService? Authenticate()
     {
         using var stream = new FileStream("credentials.json", FileMode.Open, FileAccess.Read);
         var credential = GoogleCredential.FromStream(stream).CreateScoped(Scopes);
-        return new SheetsService(new BaseClientService.Initializer()
+        if (credential != null)
         {
-            HttpClientInitializer = credential,
-            ApplicationName = ApplicationName
-        });
+            return new SheetsService(new BaseClientService.Initializer()
+            {
+                HttpClientInitializer = credential,
+                ApplicationName = ApplicationName
+            });
+        }
+        Log.Error("Failed to authenticate with Google Sheets API.");
+        return null;
     }
 }
