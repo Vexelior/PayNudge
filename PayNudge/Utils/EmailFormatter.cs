@@ -1,4 +1,5 @@
 ﻿using PayNudge.Models;
+using System.Net;
 using System.Text;
 
 namespace PayNudge.Utils;
@@ -9,29 +10,66 @@ public static class EmailFormatter
     {
         var sb = new StringBuilder();
 
-        if (due.Count > 0)
+        sb.AppendLine("<!DOCTYPE html>");
+        sb.AppendLine("<html lang='en'>");
+        sb.AppendLine("<head>");
+        sb.AppendLine("<meta charset='UTF-8'>");
+        sb.AppendLine("<meta name='viewport' content='width=device-width, initial-scale=1.0'>");
+        sb.AppendLine("<link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css' rel='stylesheet'>");
+        sb.AppendLine("<title>Utility Payments Summary</title>");
+        sb.AppendLine("</head>");
+        sb.AppendLine("<body class='bg-light'>");
+        sb.AppendLine("<div class='container my-4'>");
+        sb.AppendLine("<div class='text-center mb-4'>");
+        sb.AppendLine("<h2 class='fw-bold'>Utility Payment Summary</h2>");
+        sb.AppendLine("</div>");
+
+        void AddTableSection(string title, string colorClass, List<PaymentRow> rows)
         {
-            sb.Append("<b>Due Today:</b><ul>");
-            due.ForEach(p => sb.Append($"<li>[{p.DueDate.ToShortDateString()}] - {p.PayTo} - {p.AmountDue}</li>"));
-            sb.Append("</ul>");
+            if (rows.Count == 0)
+                return;
+
+            sb.AppendLine($"<div class='card mb-4 shadow-sm border-{colorClass}'>");
+            sb.AppendLine($"<div class='card-header bg-{colorClass} text-white'><h5 class='mb-0'>{title}</h5></div>");
+            sb.AppendLine("<div class='card-body p-0'>");
+            sb.AppendLine("<table class='table table-striped mb-0'>");
+            sb.AppendLine("<thead class='table-light'>");
+            sb.AppendLine("<tr>");
+            sb.AppendLine("<th scope='col'>Due Date</th>");
+            sb.AppendLine("<th scope='col'>Pay To</th>");
+            sb.AppendLine("<th scope='col'>Amount Due</th>");
+            sb.AppendLine("</tr>");
+            sb.AppendLine("</thead>");
+            sb.AppendLine("<tbody>");
+
+            foreach (var row in rows.OrderBy(r => r.DueDate))
+            {
+                sb.AppendLine("<tr>");
+                sb.AppendLine($"<td>{row.DueDate:MMM dd, yyyy}</td>");
+                sb.AppendLine($"<td>{WebUtility.HtmlEncode(row.PayTo)}</td>");
+                sb.AppendLine($"<td>{row.AmountDue}</td>");
+                sb.AppendLine("</tr>");
+            }
+
+            sb.AppendLine("</tbody>");
+            sb.AppendLine("</table>");
+            sb.AppendLine("</div>");
+            sb.AppendLine("</div>");
         }
 
-        if (over.Count > 0)
-        {
-            sb.Append("<b>Overdue Payments:</b><ul>");
-            over.ForEach(p => sb.Append($"<li>[{p.DueDate.ToShortDateString()}] - {p.PayTo} - {p.AmountDue}</li>"));
-            sb.Append("</ul>");
-        }
+        AddTableSection("Overdue Payments", "danger", over);
+        AddTableSection("Due Soon", "warning", due);
+        AddTableSection("Upcoming Payments", "info", upcoming);
 
-        if (upcoming.Count <= 0)
-        {
-            return sb.ToString();
-        }
+        sb.AppendLine("<footer class='text-center mt-4 text-muted'>");
+        sb.AppendLine("<small>Automated Utility Payment Report • Do not reply to this message</small>");
+        sb.AppendLine("</footer>");
+        sb.AppendLine("</div>");
+        sb.AppendLine("</body>");
+        sb.AppendLine("</html>");
 
-        sb.Append("<b>Upcoming Payments:</b><ul>");
-        upcoming.ForEach(p => sb.Append($"<li>[{p.DueDate.ToShortDateString()}] - {p.PayTo} - {p.AmountDue}</li>"));
-        sb.Append("</ul>");
-
-        return sb.ToString();
+        var pm = new PreMailer.Net.PreMailer(sb.ToString());
+        var result = pm.MoveCssInline();
+        return result.Html;
     }
 }

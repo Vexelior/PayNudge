@@ -27,44 +27,77 @@ public class GoogleSheetsService
             return [];
         }
 
-        var sheetName = DateTime.Now.ToString("MMMM yyyy");
-        var range = $"{sheetName}!B5:F";
-
-        var request = service.Spreadsheets.Values.Get(SpreadsheetId, range);
-        var response = request.Execute();
-        var values = response.Values.Where(v => v.Count > 0).ToList();
-        var headers = values[0].Select(h => h.ToString()).ToList();
-
-        var dueIdx = headers.IndexOf("Due Date");
-        var payToIdx = headers.IndexOf("Pay To");
-        var amtIdx = headers.IndexOf("Amount Due");
-        var paidIdx = headers.IndexOf("Paid");
-
         var list = new List<PaymentRow>();
 
-        foreach (var row in values.Skip(1))
+        var monthsToCheck = new[]
         {
-            if (row.Count <= dueIdx || row[dueIdx].ToString() == "Total")
-                continue;
+            DateTime.Now,
+            DateTime.Now.AddMonths(1)
+        };
 
-            if (!DateTime.TryParseExact(row[dueIdx].ToString(), "M/dd/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var dueDate))
-                continue;
+        foreach (var month in monthsToCheck)
+        {
+            var sheetName = month.ToString("MMMM yyyy");
+            var range = $"{sheetName}!B5:F";
 
-            bool paid = row.Count > paidIdx && row[paidIdx].ToString()?.Trim().ToUpper() == "TRUE";
-            if (paid) continue;
+            Log.Information("Checking for sheet: {SheetName}", sheetName);
 
-            Log.Information("Found payment that meets criteria: DueDate={ToShortDateString}, PayTo={O}, AmountDue={O1}", dueDate.ToShortDateString(), row[payToIdx], row[amtIdx]);
+            var request = service.Spreadsheets.Values.Get(SpreadsheetId, range);
 
-            list.Add(new PaymentRow
+            if (request == null)
             {
-                DueDate = dueDate,
-                PayTo = row[payToIdx].ToString(),
-                AmountDue = row[amtIdx].ToString(),
-            });
+                Log.Error("Failed to find sheet: {SheetName}", sheetName);
+                continue;
+            }
+
+            var response = request.Execute();
+
+            if (response.Values == null || response.Values.Count == 0)
+            {
+                Log.Warning("No data found for sheet: {SheetName}", sheetName);
+                continue;
+            }
+
+            var values = response.Values.Where(v => v.Count > 0).ToList();
+            var headers = values[0].Select(h => h.ToString()).ToList();
+
+            var dueIdx = headers.IndexOf("Due Date");
+            var payToIdx = headers.IndexOf("Pay To");
+            var amtIdx = headers.IndexOf("Amount Due");
+            var paidIdx = headers.IndexOf("Paid");
+
+            if (dueIdx == -1 || payToIdx == -1 || amtIdx == -1 || paidIdx == -1)
+            {
+                Log.Warning("Missing expected headers in sheet {SheetName}. Skipping.", sheetName);
+                continue;
+            }
+
+            foreach (var row in values.Skip(1))
+            {
+                if (row.Count <= dueIdx || row[dueIdx].ToString() == "Total")
+                    continue;
+
+                if (!DateTime.TryParseExact(row[dueIdx].ToString(), "M/dd/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var dueDate))
+                    continue;
+
+                bool paid = row.Count > paidIdx && row[paidIdx].ToString()?.Trim().ToUpper() == "TRUE";
+                
+                if (paid) continue;
+
+                Log.Information("Found unpaid payment: Sheet={SheetName}, DueDate={DueDate}, PayTo={PayTo}, AmountDue={AmountDue}", sheetName, dueDate.ToShortDateString(), row[payToIdx], row[amtIdx]);
+
+                list.Add(new PaymentRow
+                {
+                    DueDate = dueDate,
+                    PayTo = row[payToIdx].ToString(),
+                    AmountDue = row[amtIdx].ToString(),
+                });
+            }
         }
 
         return list;
     }
+
 
     private static SheetsService? Authenticate()
     {
