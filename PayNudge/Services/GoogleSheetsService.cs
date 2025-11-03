@@ -42,6 +42,12 @@ public class GoogleSheetsService
 
             Log.Information("Checking for sheet: {SheetName}", sheetName);
 
+            if (!SheetExists(service, sheetName))
+            {
+                Log.Warning("Sheet not found: {SheetName}", sheetName);
+                continue;
+            }
+
             var request = service.Spreadsheets.Values.Get(SpreadsheetId, range);
 
             if (request == null)
@@ -98,6 +104,13 @@ public class GoogleSheetsService
         return list;
     }
 
+    private static bool SheetExists(SheetsService service, string sheetName)
+    {
+        var metadataRequest = service.Spreadsheets.Get(SpreadsheetId);
+        metadataRequest.Fields = "sheets(properties(title))";
+        var spreadsheet = metadataRequest.Execute();
+        return spreadsheet.Sheets?.Any(s => s.Properties?.Title == sheetName) ?? false;
+    }
 
     private static SheetsService? Authenticate()
     {
