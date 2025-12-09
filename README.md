@@ -1,6 +1,12 @@
 # PayNudge
 
-PayNudge is a C# program designed to help users collect payment due dates from a Google Sheet and send reminders via email. It utilizes the Google Sheets API to read data from a specified sheet and the MailKit library to send emails.
+**PayNudge** is an automated payment reminder system designed to streamline financial management and ensure timely bill payments. Built with C# and .NET 8.0, this lightweight console application integrates seamlessly with Google Sheets to track payment schedules and delivers intelligent email notifications to keep you informed about upcoming, current, and overdue payments.
+
+## Overview
+
+PayNudge eliminates the stress of tracking multiple payment deadlines by automatically monitoring your payment schedule stored in Google Sheets. The application intelligently categorizes payments into three priority levels—overdue, due today, and upcoming (within 3 days)—and sends consolidated email reminders with professionally formatted HTML notifications. Whether you're managing personal bills, rental payments, or business obligations, PayNudge serves as your reliable financial assistant, helping you maintain good payment histories and avoid late fees.
+
+Perfect for individuals, small businesses, and property managers, PayNudge leverages enterprise-grade technologies including the Google Sheets API for data retrieval, MailKit for secure email delivery, and Serilog for comprehensive logging and monitoring. The application's configuration-driven approach makes it easy to customize for various use cases, from personal finance tracking to multi-tenant payment management.
 
 ## Features
 
